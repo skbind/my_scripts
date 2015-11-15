@@ -1,0 +1,73 @@
+<html>
+<body>
+
+<strong>Hi [% user %]</strong>, 
+
+<p>
+<p>
+	This is the progress report of CBAS builds.
+<p>
+
+
+<p><p><p>
+
+<p>
+
+
+<strong><font color="#151B8D">Details:</font></strong>
+<br>
+
+
+<table cellpadding="2" cellspacing="2" border="2" width="80%">
+<tr>
+	<td><strong>REQUEST_DESC</strong></td>
+	<td> [% REQUEST_DESC %] </td>
+</tr>
+<tr>
+	<td><strong>Vgbuild ID</strong></td>
+	<td> [% vgbuiBUILD_SEQ_NUM  %] </td>
+</tr>
+<tr>
+	<td><strong>BUILD_SERVER</strong></td>
+	<td> [% BUILD_SERVER %] </td>
+</tr>
+<tr>
+        <td><strong>LOGDIR</strong></td>
+	<td> [% LOGDIR %] </td>
+</tr>
+<tr>
+        <td><strong>BRANCH_NAME</strong></td>
+	<td> [% BRANCH_NAME %].build </td>
+</tr>
+<tr>
+        <td><strong>Ref-Build</strong></td>
+	<td> [% ref_build %] </td>
+</tr>
+<tr>
+        <td><strong>NUM_IMAGE_LIST_FAILED</strong></td>
+        <td> [% uy %] </td>
+</tr>
+</table>
+
+
+<p><p>
+<a href="http://wwwin.cisco.com/?info=[% info %] "> Link to go to CBAS</a>
+<br>
+
+<p><p><p><p><p><p>
+<strong>BUILDS NOT RUNNING:</strong>
+<br>  
+<br>
+<p><p><p><p>
+
+<br>
+<strong>Genuine Build Failures:</strong>
+<br>
+<p><p><p><p><p><p>
+ 
+<strong><font color="#151B8D"> Thank You !!!</font></strong>
+<br>
+
+</body>
+      
+</html>

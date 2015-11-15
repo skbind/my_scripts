@@ -1,0 +1,650 @@
+#!/usr/cisco/bin/perl5.8.8 -w
+################################################################################
+#
+# Module:      cc_updver_comp
+# Creator:     Prabir Senapati (psenapat@cisco.com)
+# Date:        7/14/2005
+#
+# File Id:     /vob/scm/cctools/bin/cc_updver_comp@@/main/v8_0_release/2
+# Rel Label:   V8_2_1
+# Rel Date:    4-May-2015:11.57.59(local)  4-May-2015:18.57.59(GMT)
+#
+# Copyright (c) 1996-2007, 2009-2010, 2012 by cisco Systems, Inc.
+#
+################################################################################
+
+=head1 NAME
+
+    cc_updver_comp - modify attributes of a component version.
+
+=head1 SYNOPSIS
+
+    cc_updver_comp  [-help] [-component <comp-name>] [-change <attribute>:<new_value>]
+
+=head1 DESCRIPTION
+
+The tool cc_updver_comp is responsible for modifying the attributes associated 
+with a component version. The attribute list is restricted only to PASSED_STATIC_ANALYSIS,
+BAD_FIX, and GOOD_FIX_VERSION attributes.
+
+=head1 OPTIONS
+
+ -help       - Show the usage information for cc_updver_comp.
+
+ -component  - The name of the component or component version to be examined.
+               It's value should be in the <compname@version-string> format.
+               The version-string is mandatory with the component name.
+
+ -change     - The name of the attribute to be changed and its value.
+               It's value should be in the <attr:value> format:
+
+               BAD_FIX                - TRUE or FALSE
+               GOOD_FIX_VERSION       - <version>
+               BRANCH_CLASSIFICATION  - <classification>
+               PASSED_STATIC_ANALYSIS - TRUE or FALSE
+
+=head1 EXAMPLES
+
+ o   Interactive update of component version attribute
+     cc_updver_comp
+ o   Directly update the attribute <PASSED_STATIC_ANALYSIS> with value <TRUE> for component
+     <naramesh1234@LATEST>
+     cc_updver_comp -component naramesh1234@LATEST -change PASSED_STATIC_ANALYSIS:TRUE 
+ o   Mark component issu@1.2.4 as bad codefix version:
+     cc_updver_comp -component issu@1.2.4 -change BAD_FIX:TRUE
+ o   Mark component issu@1.2.4 is resolved by issu@1.3.0
+     cc_updver_comp -component issu@1.2.4 -change GOOD_FIX_VERSION:issu@1.3.0
+
+=head1 SEE ALSO
+
+ updbranch
+
+=cut
+
+BEGIN {
+    if ( $^O eq 'MSWin32' ) {
+        require( $ENV{'CC_STARTUP_FILE'}
+              || 'T:/cctools/current/lib/cc_startup.pm' );
+    }
+    else {
+        require( $ENV{'CC_STARTUP_FILE'}
+              || '/usr/cisco/packages/atria/current/lib/cc_startup.pm' );
+    }
+}
+
+##################################################################
+#                      MODULES                                   #
+##################################################################
+use strict;
+use Getopt::Long;
+use Error qw( :try );
+use cc_error;
+use cc_component::singlesource;
+use cc_comp_tag;
+use cc_branch;
+use cc_env_init;
+use Pod::Usage qw( pod2usage );
+use Data::Dumper;
+
+require "cc_io.pl";
+
+################################################################################
+#                    GLOBALS                                                   #
+################################################################################
+
+my %ALL_ATTRIBUTES = (
+    PASSED_STATIC_ANALYSIS => \&_static_analysis,
+    BRANCH_CLASSIFICATION  => \&_cs_branch_classification,
+    BAD_FIX                => \&_bad_fix,
+    GOOD_FIX_VERSION       => \&_good_fix_version
+);
+my %ALLOWED_ATTRIBUTES = (
+    PASSED_STATIC_ANALYSIS => 1,
+    BRANCH_CLASSIFICATION  => 1,
+    BAD_FIX                => 1,
+    GOOD_FIX_VERSION       => 1
+);
+my $Exitval = 0;
+my %attr_change_details;
+
+################################################################################
+#			MAIN						       #
+################################################################################
+# The main function.
+# Things gets controlled from the hash of functions. One just needs to create a
+# separate function and add to the hash of function. That's all !
+try {
+    flush();
+    cc_env_init::cc_setup();
+    install_sighandler();
+
+    my %option_values = ();
+    my @options       = qw( help component=s change=s );
+    my ( $component_obj, $component_name, $attr, $value, $comp_tag_obj,
+        %attr_old_values, $old_value );
+
+    my $result = GetOptions( \%option_values, @options );
+    if ( !$result || scalar(@ARGV) ) {
+        pod2usage(
+            -exitval => 1,
+            -verbose => 0,
+            -message => "Error: Invalid arguments passed.\n"
+        );
+    }
+
+    if ( exists( $option_values{help} ) ) {    #GetOpts knows h for help
+        pod2usage( -exitval => 0, -verbose => 1 );
+    }
+
+    if ( !defined( $option_values{component} ) ) {
+        my $resp = cc_prompt("Please enter the component version name> ");
+        if ( !check_version($resp) ) {
+            pod2usage( -exitval => 1, -verbose => 1 );
+        }
+        else {
+            $option_values{component} = $resp;
+        }
+    }
+    else {
+        if ( !check_version( $option_values{component} ) ) {
+            pod2usage( -exitval => 1, -verbose => 1 );
+        }
+    }
+    $component_name = $option_values{component};
+    $component_obj  =
+      cc_component::singlesource->new( component => $component_name );
+    $comp_tag_obj = $component_obj->get_tag();
+
+    if ( !defined( $option_values{change} ) ) {
+
+        # Show the attributes on the component version and get the old-values        
+    open (FH,"< /users/sabind/SCRIPTS/all_comp") or die "Can't open the file: /users/sabind/SCRIPTS/all_comp\n";	
+	my @comp;
+	foreach (<FH>){
+		next if ($_ =~ /^#/ || /^\s+/);
+		$_ =~ s/\s+::.*$//;
+		chomp;
+		#print "$_\n";
+		$option_values{component} = $_;
+		my    $comp = $option_values{component};
+        my $comp_obj  =
+        cc_component::singlesource->new( component => $comp );
+        my $comp_t_obj = $comp_obj->get_tag();
+					        
+        %attr_old_values = show_comp_attr( $comp_t_obj, $_ );
+ 		push @comp,$_;
+	}
+	close(FH);
+	#print Dumper(\%option_values);
+        cc_view_exit(0);
+        my $resp =
+          cc_getyn( 'Would you like to modify the above attributes?', 'y' );
+        if ( $resp eq 'n' ) {
+            print "no changes made, exiting...\n";
+            cc_view_exit(0);
+        }
+        $resp =
+          cc_prompt(
+'Please enter the attribute name or index number(Hit return to quit)> '
+          );
+        if ( !defined($resp) || $resp eq '' ) {
+            print "quiting...\n";
+            cc_view_exit(0);
+        }
+        elsif ( !( $resp = get_attr_name( $resp, \%attr_old_values ) ) ) {
+            warn("ERROR: attribute name or index number do not exist.\n");
+            my @errlog;
+            push( @errlog,
+                "ERROR: attribute name or index number do not exist." );
+            cc_view_exit( 1, @errlog );
+        }
+        else {
+            my $resp1 = cc_prompt("Please enter a new value for $resp> ");
+            $option_values{change} = $resp . ":" . $resp1;
+            ### The attribute to be modified is obtained through an interactive session.
+            ### Need to capture this to pass to cc_logvitals (CETS Monitor logging)
+            push( @main::CC_ARGV, $option_values{change} );
+        }
+    }
+    else {
+        %attr_old_values = show_comp_attr( $comp_tag_obj, $component_name );
+    }
+    ( $attr, $value ) = split( /:/, $option_values{change} );
+    if ( !exists( $ALLOWED_ATTRIBUTES{$attr} ) ) {
+        warn("ERROR: $attr is not allowed to be modified.\n");
+        cc_view_exit(1);
+    }
+    my $ret_val = 0;
+    $old_value = $attr_old_values{$attr}[1];
+    if (
+        (
+            $ret_val =
+            $ALL_ATTRIBUTES{$attr}->( $comp_tag_obj, $value, $old_value )
+        ) == 1
+      )
+    {
+        print
+          "The $attr attribute value was changed from $old_value to $value.\n";
+        $attr_change_details{'ATTRIBUTE'} = $attr;
+        $attr_change_details{'OLD_VALUE'} = $old_value;
+        $attr_change_details{'NEW_VALUE'} = $value;
+    }
+    elsif ( $ret_val == 0 ) {
+        print "exiting...\n";
+        cc_view_exit(0);
+    }    #user entered 'n'.
+  }
+  otherwise {
+    my $e = shift;
+    print "ERROR: " . $e->text . "\n";
+    $Exitval ||= 1;
+  };
+cc_view_exit( $Exitval, undef, \%attr_change_details );
+
+##############################################################################
+#                        FUNCTIONS                                            #
+###############################################################################
+
+#----------------------------------------------------------------------------
+# get_response_type ()
+# Checks the response string user entered against hard-coded possibilities.
+# Params:
+#      Response - The user entered string.
+# Returns:
+#      Success - Returns the same string.
+#      Failure - 0.
+#-------------------------------------------------------------------------------
+sub get_response_type {
+    my $response_str = shift;
+    if ( $response_str eq 'TRUE' ) {
+        return $response_str;
+    }
+    elsif ( $response_str eq 'FALSE' ) {
+        return $response_str;
+    }
+    else {
+        return 0;
+    }
+}
+
+#----------------------------------------------------------------------------------------
+# get_attr_name ()
+# Checks whether the attribute string or its index number entered is valid.
+# Checks whether that attribute is allowed to be changed.
+# Params:
+#      Index - The user entered attr string or index number.
+#      Old values hash - Hash reference of all the attributes with its existing values.
+# Returns:
+#      Success - Returns the hash key which is the attribute string (if valid & exists).
+#      Failure - Returns 0 (if invalid & do not exist).
+#----------------------------------------------------------------------------------------
+sub get_attr_name {
+    my ( $index, $old_val_hash ) = @_;
+    my %hash = %$old_val_hash;
+
+    if ( exists $hash{$index} ) {
+        if ( defined( $hash{$index} ) && exists $ALLOWED_ATTRIBUTES{$index} ) {
+            return $index;
+        }
+    }
+    else {
+        foreach my $key ( keys %hash ) {
+            if ( $index eq $hash{$key}[0] ) {
+                if ( exists( $ALLOWED_ATTRIBUTES{$key} ) ) {
+                    return $key;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+#-----------------------------------------------------------------------------
+# check_version ()
+# Checks the way the user entered the component name and its version string.
+# Params:
+#      Component string - The user entered component string with its version.
+# Returns
+#      0 - on success.
+#      1 - on failure.
+#-----------------------------------------------------------------------------
+sub check_version {
+    my $version_str = shift;
+    if ( defined($version_str) && $version_str !~ /\@/ ) {
+        warn(
+            "Error: Version string with the component is mandatory. " . "\n" );
+        return 0;
+    }
+    else {
+        return 1;
+    }
+}
+
+sub flush {
+
+    # autoflush output
+    select(STDERR);
+    $| = 1;    # make unbuffered
+    select(STDOUT);
+    $| = 1;    # make unbuffered
+}
+
+#---------------------------------------------------------------------------------------------
+# show_comp_attr ()
+# Retrieves the existing attr values from the Component tag.
+# Params:
+#       Component Tag - The component tag object.
+#       Component name - The component version string.
+# Returns
+#      A existing attributes value hash.
+#------------------------------------------------------------------------- -------------------
+sub show_comp_attr {
+    #print "retrieving component attribute values...\n";
+    my ( $comp_tag, $component_name ) = @_;
+    my $attr_val_str    = '';
+    my $attr_val_status = '';
+    my %attr_hash       = ();
+    my $counter         = 0;
+
+    # cud be used for displaying more attrs later.
+    print $comp_tag->get_spec()->get_name() . '@'
+      . $comp_tag->get_version_string()
+      . ' : ';
+    foreach my $key ( keys %ALLOWED_ATTRIBUTES ) {
+        $attr_val_str = $ALL_ATTRIBUTES{$key}->( $comp_tag, undef, undef );
+        $attr_hash{$key} = [ $counter, $attr_val_str ];
+        print "$attr_val_str\n" if ($key =~ /BRANCH_CLASSIFICATION/);
+        #print "[" . $counter . "]" . " $key = $attr_val_str\n" if ($key =~ /BRANCH_CLASSIFICATION/);
+        $counter++;
+    }
+    my @sorted_attr =
+      sort { $attr_hash{$a}[0] <=> $attr_hash{$b}[0] } keys %attr_hash;
+    foreach my $value (@sorted_attr) {
+        $attr_hash{$value} = [ $attr_hash{$value}[0], $attr_hash{$value}[1] ];
+    }
+
+    return (%attr_hash);
+}
+
+#------------------------------------------------------------------------------------
+# _static_analysis ()
+# Returns the existing PASSED_STATIC_ANALYSIS attr value if second arg is not defined.
+# Tries to change the PASSED_STATIC_ANALYSIS by calling appropriate methods.
+# It changes the second arg passed if the user changes interactively.
+# Params:
+#      Component Tag - The component tag object
+#      Attr Value    - The attribute value the user wants to set.
+#      Old Value     - The existing attribute value.
+# Returns            - 1 (if properly set)
+#                    - 0 (if user changes his mind to change value)
+#                    - Throws Exception on any other error.
+#------------------------------------------------------------------------------------
+sub _static_analysis {
+    my ( $comp_tag, $value, $old_value ) = @_;
+    unless ($value) {
+        my $sa = $comp_tag->get_static_analysis();
+        return ( $sa && $sa eq 'Y' ? 'TRUE' : 'FALSE' );
+    }
+
+    while (1) {
+        if ( $value eq $old_value ) {
+            my $resp = cc_getyn("Old value is same as this, want to change? ");
+            if ( $resp eq 'n' ) {
+                return 0;    # wud help in proper exit.
+            }
+            else {
+                my $resp = cc_prompt("Enter the attribute value[TRUE|FALSE]> ");
+                $value = $resp;
+                $_[1] = $value;
+            }
+        }
+        else {
+            last;
+        }
+    }
+
+    if ( $value eq 'TRUE' ) {
+        $value = 1;
+    }
+    elsif ( $value eq 'FALSE' ) {
+        $value = 0;
+    }
+    else {
+        throw cc_error(
+            "attribute value in TRUE/FALSE format is only acceptable.");
+    }
+
+    #returns 1 if properly set or throws exception from the method.
+    return ( $comp_tag->set_static_analysis($value) );
+}
+
+#------------------------------------------------------------------------------------
+# _bad_fix()
+# Returns the existing BAD_FIX attribute (TRUE/FALSE) if second argument is not defined.
+# Tries to change the BAD_FIX attribute to TRUE by calling appropriate methods.
+# Params:
+#      Component Tag - The component tag object
+#      Attr Value    - The attribute value the user wants to set.
+#      Old Value     - The existing attribute value.
+#      Returns       - 1 (if properly set)
+#                    - 0 (if comp. version is already marked bad)
+#                    - Throws Exception on any other error.
+#------------------------------------------------------------------------------------
+sub _bad_fix {
+    my ( $comp_tag, $value, $old_value ) = @_;
+    my $is_bad;
+
+    try {
+        $is_bad = $comp_tag->is_directly_bad_codefix();
+      }
+      otherwise {
+
+        #
+      };
+
+    return $is_bad ? 'TRUE' : 'FALSE'
+      unless ( defined $value );    # only wanted to know if the version is bad
+
+    # try to mark the version bad if it has not been already
+    if ($is_bad) {
+        warn(
+            "Version ",
+            $comp_tag->get_version_string(),
+            " is already marked bad codefix. Not allowed to change the value.\n"
+        );
+        return 0;
+    }
+
+    throw cc_error("Only TRUE is accepted.\n")
+      unless ( $value eq 'TRUE' );
+
+    #returns 1 if properly set or throws exception from the method.
+    return ( $comp_tag->mark_bad() );
+}
+
+#------------------------------------------------------------------------------------
+# _good_fix_version()
+#
+# Returns the existing GOOD_FIX_VERSION attribute if second argument is not defined.
+# Tries to change the GOOD_FIX_VERSION attribute by calling appropriate methods.
+# Note that, we need to call this on a component version which is marked bad.
+# And, the version string we give must be on the same component branch (same prefix)
+# and later than the bad codefix version.
+#
+# Params:
+#      Component Tag - The component tag object
+#      Attr Value    - The attribute value the user wants to set.
+#      Old Value     - The existing attribute value.
+#      Returns       - 1 (if properly set)
+#                    - 0 (user quits)
+#                    - Throws Exception on any other error.
+#------------------------------------------------------------------------------------
+sub _good_fix_version {
+    my ( $comp_tag, $value, $old_value ) = @_;
+    unless ( defined $value ) {    # simply read the value and return
+        my $good_ver = try {
+            $comp_tag->directly_resolved_by();
+          }
+          otherwise {
+            undef;
+          };
+
+        return $good_ver ? $good_ver->get_version_string() : "";
+    }
+
+    my $is_bad = $comp_tag->is_directly_bad_codefix();
+    throw cc_error(
+        "To set the GOOD_FIX_VERSION, it must first be marked as a BAD_FIX",
+        " (value set to TRUE).\n" )
+      unless $is_bad;
+
+    my $goodver_comp;
+    while (1) {
+        if ( $value eq $old_value ) {
+            my $resp = cc_getyn("Old value is same as this, want to change? ");
+            if ( $resp eq 'n' ) {
+                return 0;    # wud help in proper exit.
+            }
+            else {
+                my $resp = cc_prompt("Enter the attribute value : ");
+                $goodver_comp = allowed_good_codefix_value( $comp_tag, $resp );
+                $value        = $resp;
+                $_[1]         = $value;
+            }
+        }
+        else {
+            $goodver_comp = allowed_good_codefix_value( $comp_tag, $value );
+            last;
+        }
+    }
+
+    my $goodtag = $goodver_comp->get_tag();
+    $comp_tag->mark_resolved($goodtag);
+
+    return 1;
+}
+
+#------------------------------------------------------------------------------------
+# allowed_good_codefix_value()
+#
+# Checks if the entered good codefix version is on the same branch and after
+# the bad codefix version.
+#
+# Params:
+#      Component Tag - The component tag object
+#      Attr Value    - The attribute value the user wants to set.
+#      Returns       - cc_component::singlesource object of the entered version
+#                    - Throws Exception otherwise
+#------------------------------------------------------------------------------------
+sub allowed_good_codefix_value {
+    my ( $old_tag, $new_value ) = @_;
+    my ( $cmp,     $goodver );
+
+    $new_value = $1 if ( $new_value =~ /.*@(.*)/ );
+    my $comp_name = $old_tag->get_spec()->get_name();
+    my $old_value = $old_tag->get_version_string();
+
+    throw cc_error("Good codefix value cannot be empty.\n")
+      unless $new_value;    # it could be ""
+
+    try {
+        $goodver = cc_component::singlesource->new(
+            component => $comp_name . '@' . $new_value,
+            validate  => 1
+        );
+      }
+      otherwise {
+        throw cc_error("$new_value is not a valid component version in CTS.\n");
+      };
+
+    try {
+        $cmp =
+          cc_component::singlesource::spec::comp_compare_versions( $old_value,
+            $new_value );
+      }
+      otherwise {
+        throw cc_error("$new_value must have the same prefix as $old_value.\n");
+      };
+
+    throw cc_error("$new_value must be a version after $old_value.\n")
+      unless ( $cmp == 1 );
+
+    # also check that $goodver is not bad.
+    if ( $goodver->get_tag()->is_directly_bad_codefix() ) {
+        throw cc_error( "$new_value is a bad codefix, "
+              . "it cannot be used as good codefix.\n" );
+    }
+
+    return $goodver;
+}
+
+#------------------------------------------------------------------------------------
+# _cs_branch_classification()
+#
+# If parameter   : Set the changeset branch classification.
+# If no parameter: Return the changeset branch classification, or '' if none.
+#
+# Params:
+#      Component Tag - The component tag object
+#      Attr Value    - The new classification
+#      Returns (set) - 1 (if properly set)
+#                    - 0 (user quits)
+#                    - Throws Exception on any other error.
+#------------------------------------------------------------------------------------
+sub _cs_branch_classification {
+    my ( $comp_tag, $new_value ) = @_;
+    my $changeset = $comp_tag->get_cctoolsdb_comp_ver->changeset;
+
+    # Set the changeset branch classification to the given value
+    if ($new_value) {
+
+        # Error - no changeset
+        if ( !$changeset ) {
+            my $version = $comp_tag->get_spec->get_spec;
+            throw cc_error(<<EOF);
+Unable to set BRANCH_CLASSIFICATION on version ($version) with no changeset.
+EOF
+        }
+
+        # Error - invalid classification
+        if ( !cc_branch->VALID_CLASSIFICATIONS->{$new_value} ) {
+            my $valid =
+              join( " ", sort( keys %{ cc_branch->VALID_CLASSIFICATIONS } ) );
+            throw cc_error(<<EOF);
+Invalid BRANCH_CLASSIFICATION: $new_value
+       Valid values include : $valid
+EOF
+        }
+
+        # Ok - Set
+        $changeset->update( branch_classification => $new_value );
+        return 1;
+    }
+
+    # Return the current changeset branch classification
+    else {
+        return $changeset ? $changeset->branch_classification : '';
+    }
+}
+
+#------------------------------------------------------------------------------
+#  install_sighandler()
+#       Signal handler routine
+#  Params:
+#       Signal Name - the name of the signal causing the routine to run
+#  Returns:
+#       nothing
+#------------------------------------------------------------------------------
+sub install_sighandler {
+    $SIG{'INT'}  = \&sig_handler if exists $SIG{'INT'};
+    $SIG{'HUP'}  = \&sig_handler if exists $SIG{'HUP'};
+    $SIG{'QUIT'} = \&sig_handler if exists $SIG{'QUIT'};
+    $SIG{'TERM'} = \&sig_handler if exists $SIG{'TERM'};
+}
+
+sub sig_handler {
+    my ($sig) = @_;
+    warn("\nCaught signal $sig -- aborting cc_updver_comp.\n");
+    cc_view_exit(1);
+}
+

@@ -1,0 +1,504 @@
+#!/bin/csh
+
+# setup teambuilder (not needed for hawaii, handled by CRAB_SETUP)
+#source /sw/packages/ccache/current/bin/setup-ccache
+
+if ( $#argv < 1 || "$1" == "-h" ) then
+	echo "Usage: $0 <[-c] [-d] [-m] [-ma] [-j] [-i]> [-h] [[-s]|[-l]] [-v] <profile name>" 
+	echo "Where -c		Make Copyout Tree"
+	echo "      -dv		Make dependency in view"
+	echo "      -d		Make Dependency"
+	echo "      -i		Make id"
+	echo "      -m		Make Images in imagemap file"
+	echo "      -ma		Make crypto.testall and production.testall"
+	echo "      -j		Use MAKEFLAG_J"
+	echo "      -j#		Specify -j facter, e.g. -j8"
+	echo "      -gdb	make using GDB_FLAG=-g"
+	echo "      -bundleonly	make using BUNDLE_ONLY=yes"
+	echo "      -submake	make using PRODUCTION_COMBINED_SUBMAKE=-"
+	echo "      -s		Use Short Imagemap file ~/bin/imagemap.sync"
+	echo "      -l		Use Long Imagemap file ~/bin/imagemap.itd1"
+	echo "      -cim	Use Imagemap file specified by imagemap_path"
+	echo "      -v		User image file /vob/ios/sync/imagemap(default)"
+	echo "      -nonotify	Do not send build status"
+	echo "      -p		Send page in addition to email for build status"
+	echo "      profile		profile is a file w/ at least this line:"
+	echo "			      	set copyoutdir = /vws/xxx/... "
+	echo "			if no profile found, the default is /vob/ios/sync/setup "
+	echo "      -h		Print this message"
+	echo "Another default location of imagemap file is copyout tree's vob/ios/sync/imagemap if no other imagemap is found."
+	exit 1
+endif
+
+set imagemap = /vob/ios/sync/imagemap
+set sendpageprefix = ""
+set buildstatnotifycmd = (mailx -s 'build_status' ${LOGNAME}@${sendpageprefix}cisco.com)
+set mkflag_j='-j12'
+set gdbflag=""
+set bundleonly=""
+set submake=""
+
+while ( $#argv >= 1 ) 
+	switch ( $1 )
+	case "-c": 
+		set copyout_verboseflag=""
+		set docopyout=y
+		shift
+		breaksw
+	case "-i":
+		set domakeid=y
+		shift
+		breaksw
+	case "-d":
+		set domakedepend=y
+		shift
+		breaksw
+	case "-dv":
+		set domakedepend=y
+		set useviewdep=y
+		shift
+		breaksw
+	case "-m":
+		set domake=y
+		shift
+		breaksw
+	case "-ma":
+		set domakeall=y
+		shift
+		breaksw
+	case "-j":
+		set mkflag_j='MAKEFLAG_J=-j12'
+		shift
+		breaksw
+	case "-j[0-9]*":
+		set mkflag_j=$1
+		shift
+		breaksw
+	case "-gdb":
+		set gdbflag='GDB_FLAG=-g'
+		shift
+		breaksw
+	case "-bundleonly":
+		set bundleonly='BUNDLE_ONLY=yes'
+		shift
+		breaksw
+	case "-submake":
+		set submake='PRODUCTION_COMBINED_SUBMAKE=-'
+		shift
+		breaksw
+	case "-nonotify":
+		set buildstatnotifycmd=(cat)
+		shift
+		breaksw
+	case "-p":
+		set sendpageprefix="epage."
+		shift
+		breaksw
+	case "-s":
+		set imagemap=/users/huiyuan/bin/imagemap.sync
+		shift
+		breaksw
+	case "-l":
+		set imagemap=/users/huiyuan/bin/imagemap.itd1
+		shift
+		breaksw
+	case "-cim":
+		set usecustomimagemap=y
+		shift
+		breaksw
+	case "-v":
+		set imagemap = /vob/ios/sync/imagemap
+		shift
+		breaksw
+	case "-*":
+		echo "Wrong option: $1"
+		exit 1
+	default:
+		set setupfile=$1
+		shift
+		breaksw
+	endsw
+end
+
+if ("X$gdbflag" != "X") then
+	if ( $?domakeall || ! $?domake ) then
+		echo "WARNING: -gdb option only apply to -m part of build"
+	endif
+endif
+if ("X$bundleonly" != "X") then
+	if ( $?domakeall || ! $?domake ) then
+		echo "WARNING: -bundleonly option only apply to -m part of build"
+	endif
+endif
+if ("X$submake" != "X") then
+	if ( $?domakeall || ! $?domake ) then
+		echo "WARNING: -submake option only apply to -m part of build"
+	endif
+endif
+
+if ( ! $?setupfile ) then
+	set setupfile=/vob/ios/sync/setup
+endif
+
+if ( ! -f "$setupfile" ) then
+	set setupfile=/vob/ios/sync/setup
+	if ( -f "$setupfile" ) then
+		echo "No Setup file Defined...set to default: $setupfile"
+		source $setupfile
+	else 
+		echo "No default setup find."
+	endif
+else
+	source $setupfile
+endif
+
+if ( ! $?copyoutdir ) then
+	echo "Please give Copy Out Tree Path: \c"
+	set copyoutdir = $<
+endif
+
+set build_host=`hostname`
+if ( $?useviewdep ) then
+	set build_dir_prefix=
+else
+	set build_dir_prefix=$copyoutdir
+endif
+
+if ( $?domake ) then
+if ( $?usecustomimagemap ) then
+	if ( $?imagemap_path ) then
+		set imagemap = $imagemap_path
+	else
+		set imagemap = ""
+	endif
+endif
+if (! -f $imagemap ) then
+		echo "Please give imagemap file name: \c"
+		set imagemap = $<
+endif
+endif
+
+set timestamp=`date +"%Y%m%d_%H%M%S"`
+set build_log_dir = $privatedir/log/build_log_$timestamp
+if (! -d "$build_log_dir") then
+	echo "mkdir $build_log_dir"
+	mkdir -p $build_log_dir
+endif
+if (! -d "$build_log_dir") then
+	set build_log_dir = ~/build_log_$timestamp
+	echo "mkdir $build_log_dir"
+	mkdir -p $build_log_dir
+endif
+if (! -d "$build_log_dir") then
+	echo "Error: specified build log dir --${build_log_dir}-- is not a dir."
+	exit 1
+endif
+echo "Build log dir: $build_log_dir"
+
+#
+# copyout
+#
+if ($?docopyout) then
+	if ("$build_dir_prefix" != "") then
+  		set mydate=`date`
+  		echo "Start Copyout: $mydate"
+  		cd $build_log_dir
+  		/nfs/scmlog/sync-contrib/copyout  $copyout_verboseflag  ${build_dir_prefix}/vob
+  		set mydate=`date`
+  		echo "Finish Copyout: $mydate"
+  		echo "copyout done $build_host" | $buildstatnotifycmd
+	endif
+endif
+
+set builddir_inview = `(chdir ${build_dir_prefix}/vob/ios ; cleartool pwv -s -wdview | grep -v -c " NONE ")`
+set insyncview = 0
+set tftpdir_prefix = $build_dir_prefix
+if ($builddir_inview) then
+  set tftpdir_prefix = `(chdir /vob/ios ; cleartool pwv -s)`
+  set tftpdir_prefix = /view/$tftpdir_prefix
+  if (`cleartool lsview -cvi -s | grep -c '\.sync'`) then
+    set insyncview = 1
+  endif
+endif
+
+if ($?domakedepend) then
+	cd ${build_dir_prefix}/vob/ios/sys
+	set mydate=`date`
+	echo "Start Make Dependencies: $mydate"
+	echo "Work directory: `pwd`"
+	if ($insyncview) then
+		sync_make -no_lock -flag "$mkflag_j" dependencies >& ${build_log_dir}/depend.log
+		set result = $status
+	else
+		make $mkflag_j dependencies >& ${build_log_dir}/depend.log
+		set result = $status
+	endif
+	if ( $result != 0 ) then
+		set rc = failed
+	else
+		set rc = succeed
+	endif
+	set mydate=`date`
+	echo "Finish Make Dependencies: $mydate"
+	echo "depend $rc $build_host" | $buildstatnotifycmd
+endif # domakedepend
+
+set tftpdir=${tftpdir_prefix}/vob/ios/tmp
+
+if ( ! -d $tftpdir ) then
+	mkdir $tftpdir
+endif
+
+if ($?domakeid) then
+	cd ${build_dir_prefix}/vob/ios/sys
+	set mydate=`date`
+	echo "Start Make ID: $mydate"
+	echo "Start Time: `date`" > ${build_log_dir}/id.log
+	if ($insyncview) then
+		sync_make -no_lock -flag "$mkflag_j" id >>& ${build_log_dir}/id.log
+		set result = $status
+	else
+		make $mkflag_j id >>& ${build_log_dir}/id.log
+		set result = $status
+	endif
+	if ( $result != 0 ) then
+		set rc = failed
+	else
+		set rc = succeeded
+	endif
+	set mydate=`date`
+	echo "Finish Make ID: $mydate"
+	echo "End Time: `date`" >> ${build_log_dir}/id.log
+	echo "id $rc $build_host" | $buildstatnotifycmd
+endif
+
+if ($?domakeall) then
+	touch $build_log_dir/builtimages
+
+	cd ${build_dir_prefix}/vob/ios/sys
+	#foreach mytarg ( crypto.testall production.testall production_unix.testall crypto_unix.testall )
+	foreach mytarg ( crypto.testall production.testall )
+		echo "Start Building ${mytarg}: `date`"
+		set mylog=${mytarg}.log
+		echo "Start Time: `date`" > ${build_log_dir}/${mylog}
+		if ($insyncview) then
+			echo sync_make -no_lock -flag "-k $mkflag_j" $mytarg
+			sync_make -no_lock -flag "-k $mkflag_j" $mytarg >>& ${build_log_dir}/${mylog}
+		else
+			echo make -k $mkflag_j $mytarg >>& ${build_log_dir}/${mylog}
+			make -k $mkflag_j $mytarg >>& ${build_log_dir}/${mylog}
+		endif
+		echo "End Time: `date`" >> ${build_log_dir}/${mylog}
+		set mydate=`date`
+		echo "Finish Building ${mytarg} TestAll Images: $mydate"
+		grep Glued ${build_log_dir}/${mylog} | sed -e 's/^.*form //;s/\.cz.*$//' >> ${build_log_dir}/builtimages
+		# check unix images
+		grep "^Writing Checksum: unix" ${build_log_dir}/${mylog} | \
+		  sed -e 's/Writing Checksum: unix/unix/;s/ has a text.*$//' \
+		  >> ${build_log_dir}/builtimages
+	end
+	/nfs/scmlog/sync-contrib/get_failed_images.pl $copyoutdir "^(crypto|crypto_unix|production|production_unix)_test_images" ${build_log_dir}
+	set failedimages = `cat ${build_log_dir}/failedimages | wc | cut -f1-10 -d' '`
+	echo "build done for testall targets $build_host. $failedimages images failed. failed images will be automatically rebuilt once." | $buildstatnotifycmd
+	if ( $failedimages != 0 ) then
+		set domake = y
+		echo "Removing old /vob/ios/sync/imagemap...."
+		\rm /vob/ios/sync/imagemap
+		(chdir $build_log_dir ; /nfs/scmlog/sync-contrib/obj_lookup.pl ${build_log_dir}/failedimages > testbuild.imagemap.retry)
+		mv ${build_log_dir}/failedimages ${build_log_dir}/failedimages.orig
+		set imagemap = ${build_log_dir}/testbuild.imagemap.retry
+	endif
+endif
+
+if ($?domake) then
+   if ( -f $imagemap ) then
+	set mydate=`date`
+	echo "Start Building All Sync Test Images: $mydate"
+
+	touch $build_log_dir/failedimages
+	touch $build_log_dir/builtimages
+	touch $build_log_dir/skippedimages
+
+	set failedimages = 0
+	set skippedimages = 0
+	set linenum = 0
+	#foreach myline (`cat $imagemap`)
+	#foreach myline (`grep -v '^#' $imagemap`)
+	while ($linenum < `grep -c -v '^#' $imagemap`)
+		@ linenum=$linenum + 1
+		set myline="`grep -v '^#' $imagemap | head -$linenum | tail -1`"
+		if (0 < `echo $myline | grep -c '@'`) then
+			set mytarg="`echo $myline|cut -f1 -d'@'`"
+			set myobjdir=`echo $myline|cut -f2 -d'@'`
+			set mycpu=`echo $myline|cut -f3 -d'@'`
+			if ("Z$novalabel" == "Z") then
+				@ skippedimages=$skippedimages + 1
+    				echo "ERROR: missing novalabel in buildsetup for IOSd image, SKIPPING...see skippedimages file."
+    				echo "# Missing novalabel:" >> $build_log_dir/skippedimages
+    				echo $myline >> $build_log_dir/skippedimages
+				continue
+			endif
+			if ("Z$nova_ws" == "Z") then
+				@ skippedimages=$skippedimages + 1
+    				echo "ERROR: missing nova_ws in buildsetup for IOSd image, SKIPPING...see skippedimages file."
+    				echo "# Missing nova_ws:" >> $build_log_dir/skippedimages
+    				echo $myline >> $build_log_dir/skippedimages
+				continue
+			endif
+			if ("Z$ngwc_ws" == "Z") then
+				@ skippedimages=$skippedimages + 1
+    				echo "ERROR: missing ngwc_ws in buildsetup for IOSd image, SKIPPING...see skippedimages file."
+    				echo "# Missing ngwc_ws:" >> $build_log_dir/skippedimages
+    				echo $myline >> $build_log_dir/skippedimages
+				continue
+			endif
+			if (0 < `echo $myline | grep -c ' '`) then
+				@ skippedimages=$skippedimages + 1
+    				echo "ERROR: wrong IOSd format in imagemap for $myline, SKIPPING...see skippedimages file."
+    				echo "# Wrong IOSd line format:" >> $build_log_dir/skippedimages
+    				echo $myline >> $build_log_dir/skippedimages
+				continue
+			endif
+			set extramkflags="BINOS_ROOT=$nova_ws/linkfarm/$mycpu"
+			if (0 == `echo $mytarg | grep -c ipbase`) then
+				set extramkflags="$extramkflags MAKE_IOSDSW=1"
+			endif
+			if (0 < `echo $myobjdir | grep -c ng3k`) then
+				set extramkflags="$extramkflags NGWC_ROOT=$ngwc_ws/$mycpu"
+			endif
+			if ($mycpu == "mips32") then
+				#set extramkflags="$extramkflags TOOLS_VER=c3.4.5-p4 TOOLS_SUFFIX=mips64-linux ABI=n32 PATH=${PATH}:/auto/compiler-dev/345-p4/current/cel4/router/bin"
+				set extramkflags="$extramkflags TOOLS_SUFFIX=mips64-linux ABI=n32"
+			endif
+		else
+			set mytarg="`echo $myline|cut -f1 -d':'`"
+			set myobjdir=`echo $myline|cut -f2 -d':'`
+			set mycpu=""
+			set extramkflags=""
+		endif
+		if (0 < `echo $myobjdir | egrep -c 'galk5|galaxy'`) then
+		# respect user setting of GALAXY_IOS_DEVELOPMENT
+		if (0 == `printenv | grep -c '^GALAXY_IOS_DEVELOPMENT='`) then
+			set extramkflags="$extramkflags GALAXY_IOS_DEVELOPMENT=1"
+			#GALAXY_K10 done within obj-ppc-iosd-galk5/makefile
+			#if (0 == `echo $mytarg | grep -c cat4500ex`) then
+			#	set extramkflags="$extramkflags GALAXY_K10=1"
+			#endif
+		endif
+		endif
+		set mylog="${myobjdir}.${mytarg}.log"
+		if (0 < `echo $mylog|grep -c ' '`) then
+			set mylog=${myobjdir}.log
+		endif
+		if ("`echo $mylog|grep '/'`" != "") then
+			set mylog=${myobjdir}.`basename $mytarg`.log
+		endif
+
+		if (-d $tftpdir) then
+  			#(chdir $tftpdir ; /bin/rm -f $mytarg)
+  			pushd .
+  			chdir $tftpdir
+			foreach myimg ($mytarg)
+  			unset myimgname
+			if ((0 < `echo $myimg | grep -c 'fpd-pkg$'`) && ( -f ${build_dir_prefix}/vob/ios/sys/scripts/get_fpd_pkg_ver_str)) then
+				set pkgver = `${build_dir_prefix}/vob/ios/sys/scripts/get_fpd_pkg_ver_str`
+				if ( "Z$pkgver" != "Z") then
+					set myimgname = $myimg.$pkgver.pkg
+				endif
+			endif
+			if (! $?myimgname) then
+				if ($?bin_suffix) then
+					set myimgname = $myimg.$bin_suffix
+				else
+					set myimgname = $myimg
+				endif
+			endif
+			if (-e $myimgname) then
+				/bin/rm -f "$myimgname"
+			endif
+  			if (-e $build_dir_prefix/vob/ios/sys/$myobjdir/$myimgname) then
+				/bin/rm -f $build_dir_prefix/vob/ios/sys/$myobjdir/$myimgname
+			endif
+			end
+  			popd
+		else
+  			echo "ERROR: cannot find directory $tftpdir"
+  			echo "Making directory $tftpdir"
+	  		mkdir -p $tftpdir
+		endif
+
+		if (-d ${build_dir_prefix}/vob/ios/sys/$myobjdir) then
+			echo cd ${build_dir_prefix}/vob/ios/sys/$myobjdir
+			cd ${build_dir_prefix}/vob/ios/sys/$myobjdir
+		else
+			@ skippedimages=$skippedimages + 1
+    			echo "ERROR: cannot find directory ${build_dir_prefix}/vob/ios/sys/$myobjdir, SKIPPING...see skippedimages file."
+    			echo "# Cannot find directory ${build_dir_prefix}/vob/ios/sys/$myobjdir" >> $build_log_dir/skippedimages
+    			echo $myline >> $build_log_dir/skippedimages
+			continue
+		endif
+		#make -k GDB_FLAG=-g -j12 BUNDLE_ONLY="no" TFTPHOST=$build_host TFTPDIR=$tftpdir COPY_SYMBOLS=yes $mytarg >& ${build_log_dir}/${mylog}
+		echo "Start Time: `date`" > ${build_log_dir}/${mylog}
+		set buildmakeflags = (-k $mkflag_j $gdbflag $bundleonly $submake TFTPHOST=$build_host TFTPDIR=$tftpdir COPY_SYMBOLS=yes $extramkflags)
+		if ($insyncview) then
+			echo sync_make -no_lock -flag "$buildmakeflags" $mytarg
+			sync_make -no_lock -flag "$buildmakeflags" $mytarg >>& ${build_log_dir}/${mylog}
+		else
+			echo make $buildmakeflags $mytarg
+			make $buildmakeflags $mytarg >>& ${build_log_dir}/${mylog}
+		endif
+		echo "End Time: `date`" >> ${build_log_dir}/${mylog}
+		echo "End Time: `date` ${build_log_dir}/${mylog}"
+	
+		foreach myimg ($mytarg)
+  		unset myimgname
+		if ("Z$mycpu" != "Z") then
+			set myentry = ${myimg}@${myobjdir}@${mycpu}
+		else
+			set myentry = ${myimg}:${myobjdir}
+		endif
+		if ((0 < `echo $myimg | grep -c 'fpd-pkg$'`) && ( -f ${build_dir_prefix}/vob/ios/sys/scripts/get_fpd_pkg_ver_str)) then
+			set pkgver = `${build_dir_prefix}/vob/ios/sys/scripts/get_fpd_pkg_ver_str`
+			if ( "Z$pkgver" != "Z") then
+				set myimgname = $myimg.$pkgver.pkg
+			endif
+		endif
+		if (! $?myimgname) then
+			if ($?bin_suffix) then
+				set myimgname = $myimg.$bin_suffix
+			else
+				set myimgname = $myimg
+			endif
+		endif
+		if (! -e $tftpdir/$myimgname) then
+  			if (! -e $build_dir_prefix/vob/ios/sys/$myobjdir/$myimgname) then
+    				echo $myentry >> $build_log_dir/failedimages
+				set failedimages = `expr $failedimages + 1`
+    				echo $myimg failed.
+  			else
+    				echo $myentry >> $build_log_dir/builtimages
+    				echo $myimg succeeded.
+  			endif
+		else
+  			echo $myentry >> $build_log_dir/builtimages
+		endif
+		end
+	end
+
+	if ( $failedimages != 0 || $skippedimages != 0 ) then
+		set myresult = "Not All"
+	else
+		set myresult = "All"
+	endif
+
+	set mydate=`date`
+	echo "Finish Building $myresult Sync Test Images: $mydate"
+   else
+	echo "Error: could not find imagemap $imagemap"
+	exit 1
+   endif # if -f imagemap
+
+   echo "build done for $imagemap $build_host, $failedimages images failed, $skippedimages lines skipped" | $buildstatnotifycmd
+endif # domake
+
+exit 0;

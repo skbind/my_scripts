@@ -1,0 +1,243 @@
+#!/usr/cisco/bin/perl5.8.8 -w
+######################################################################
+#  Copyright (c)  2003-2008, 2010, 2012-2014 by Cisco Systems, Inc.
+#  All rights reserved.
+######################################################################
+
+=head1 NAME
+
+sync_record_backout - Records the details of defects backed out during 
+                      branch sync.
+
+=head1 SYNOPSIS
+
+B<sync_record_backout> S< B<-h/elp > >
+
+B<sync_record_backout> S< B<-man > >
+
+B<sync_record_backout> S< B<-a/dd> >
+    S< B<-f/ile> I<file> | I<bugid:reason[:commit] ... > >
+
+B<sync_record_backout> S< B<-r/emove> >
+    S< B<-f/ile> I<file> | I<bugid> ... >
+
+B<sync_record_backout> S< B<-u/pdate> >
+    S< B<-f/ile> I<file> | I<bugid:reason[:commit]> >
+
+B<sync_record_backout> S< B<-l/ist> >
+
+=head1 DESCRIPTION
+
+This tool is used by sync engineers to view and modify the list of defects
+to be backed out of a sync.  It must be run within a sync view by the
+owner of the sync view.
+
+=head1 OPTIONS
+
+-help    - Output help information.
+
+-add     - Add bugid to backed out list.
+
+-remove  - Remove bugid from backed out list.
+
+-update  - Update backed out list with new reasons.
+
+-list    - List backed out bugid and reasons.
+
+-file    - Read <bugid>, and <reason> if applicable, from
+           specified file.
+
+I<bugid>  - Valid defect id.
+
+I<reason> - Reason defect was backed out.
+
+            Valid reasons are NR  No response
+                              NA  Not applicable
+                              NC  Needs commit
+                              DC  Double commit
+                              BC  Bad commit
+
+I<commit> - Valid defect id specifying the defect id used
+            for a double commit.  Only valid for DC and NC
+            reasons.
+
+
+
+=head1 EXAMPLES
+
+     1. Add the bug CSCin19422 backed out due to reason 'DC'.
+
+        %sync_record_backout -a CSCin19422:DC
+
+     2. Remove the bug 'CSCin19422' from backout table.
+
+        %sync_record_backout -r CSCin19422
+
+     3. Add bugs to backout table, the bug IDs and corresponding 
+        resons of which are available in file '/vws/ofn/ab/tmp/file'.
+
+        %sync_record_backout -a -f /vws/ofn/ab/tmp/file
+
+     4. Remove bugs from backout table, the bug IDs,
+        the IDs of which are in the file '/vws/ofn/ab/tmp/file'. 
+
+        %sync_record_backout -r -f /vws/ofn/ab/tmp/file
+
+     5. List bugs backed out on current branch.
+
+        %sync_record_backout -l
+
+     6. Help information for sync_record_backout
+ 
+        %sync_record_backout -h
+
+=cut
+
+######################################################################
+
+BEGIN 
+{
+    $ENV{'CC_LIBDIR'}   ||= '/usr/cisco/packages/atria/current/lib/perl';
+    $ENV{ SYNC_LIBDIR } ||= '/usr/cisco/packages/synctools/current/lib';
+
+    unless ( $ENV{ ORACLE_LIBDIR } )
+    {
+       $ENV{ ORACLE_LIBDIR } = '/opt/perl/modules/Oracle/8.1.7/lib'
+           if  ( $^O eq 'linux' );
+
+       $ENV{ ORACLE_LIBDIR } = '/opt/perl/modules/Oracle/8.1.6/lib'
+           if  ( $^O eq 'solaris' );
+
+       $ENV{ ORACLE_LIBDIR } = 't:/cctools/current/lib'
+           if  ( $^O eq 'MSWin32' );
+    }
+}
+
+######################################################################
+#                    MODULES                                         #
+######################################################################
+
+use lib ( $ENV{CC_LIBDIR}, $ENV{ORACLE_LIBDIR}, $ENV{SYNC_LIBDIR} );
+use strict;
+use Getopt::Long    qw( GetOptions );
+use Pod::Usage qw( pod2usage );
+use Error          qw( :try       );
+
+use cc_view;
+use cc_error;
+use st_optype;
+use st_globs            qw( st_get_glob );
+use st_record_backout   qw( run_record_backout );
+use st_main             qw( is_supported );
+
+
+select (STDERR); $| = 1;
+select (STDOUT); $| = 1;    # make unbuffered.
+
+
+######################################################################
+#                    SUBROUTINES                                     #
+######################################################################
+
+######################################################################
+# NAME :
+#   process_options()
+#
+# PURPOSE :
+#   Process the options given to the script.
+#
+# PARAMETERS :
+#   None
+#
+# GLOBALS :
+#   None
+#
+# RETURNS :
+#   On Success: a hash which stores the user's options.
+#   On Failure: exits with appropriate error message
+#
+######################################################################
+sub process_options
+{
+    my %options;
+
+    GetOptions(\%options, qw( man help|h add|a remove|r update|u list|l file|f=s ) )
+       or  pod2usage( "ERROR: Error in usage." );
+    
+    pod2usage( -exitval => 0, -verbose => 1 ) if ( $options{help} );
+
+    pod2usage( -exitval => 0, -verbose => 2 ) if ( $options{man} );
+
+    if( $options{list} && $options{file} )
+    {
+        pod2usage( "ERROR: Option -file shouldn't be used with -list.\n" );
+    }
+  
+    my $option_count = 0; 
+    foreach my $option ( qw(add remove update list ) )
+    {
+        $option_count++ if( $options{$option} );
+        pod2usage( "ERROR: Use only one option of add, remove, update, list.\n" )
+           if( $option_count > 1);
+    }
+
+    pod2usage( "ERROR: Extra arguments specified." )
+        if ( $options{ list } && @ARGV );
+
+    if ( $options{ file } )
+    {
+        open( FILE, "<$options{ file }" )
+            or die( "ERROR: Could not open file '$options{ file }'\n",
+                    "       for reading.\n$!\n" );
+        my @bugs = <FILE>;
+        close( FILE );
+        chomp( @bugs );
+        die( "ERROR: No defect information found in file\n",
+             "       '$options{ file }'.\n" )
+            unless ( @bugs );
+        $options{ bugs } = \@bugs;
+    }
+    elsif( !$options{ list } )
+    {
+        pod2usage( "ERROR: No defect information specified.\n" )
+            unless ( @ARGV );
+        $options{ bugs } = [ @ARGV ];
+    }
+
+    return %options;
+
+}
+
+###############################################################################
+#                       MAIN                                                  #
+###############################################################################
+
+my $my_options = "@ARGV";
+
+my $script = basename( $0 );
+
+my %options = process_options();
+
+# Check if SYNC_view. 
+my $view = cc_view->new()
+    or die ("ERROR:  You must be in a view to use this tool.\n".
+            cc_view->err_retrieve );
+
+die("ERROR: This command must be run from a sync view.\n")
+    unless( $view->is_sync );
+
+my $so_obj = st_optype->new( st_get_glob( 'SYNC' ), 'VIEW' => $view );
+unless ( defined $so_obj ) {
+    print( "ERROR: Unable to create st_optype object: " .
+                                              st_optype->err_retrieve());
+    exit(1);
+}
+
+# check if sync tools is supported
+exit( 1 ) if ( ! is_supported( $so_obj, $script ) );
+
+unless ( run_record_backout( $so_obj, $my_options, \%options ) ) {
+    cc_view_exit( 1 );
+}
+
+cc_view_exit( 0 );

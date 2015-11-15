@@ -1,0 +1,5 @@
+#field1:id_check true or false, field2:branch_name, filed3:bundle_id, id used to bundle.
+{"id_check":"true","branch":"v152_2_sy_throttle","bundle_id":"CSCuv35291"}
+{"id_check":"true","branch":"v152_1a_sy_throttle","bundle_id":"CSCur64967"}
+{"id_check":"false","branch":"v152_1_sy_throttle","bundle_id":"CSCur64967"}
+{"id_check":"true","branch":"v151_2_sy_throttle","bundle_id":"CSCui33292"}

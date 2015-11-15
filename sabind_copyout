@@ -1,0 +1,46 @@
+#!/bin/csh
+#
+# copyout [-v] targetdir
+# e.g. 1. copyout /vws/vpm/CPY-vtg_geo_t_pi4.sync/vob
+#      2. copyout -v /vws/vpm/CPY-vtg_geo_t_pi4.sync/vob
+#
+set timestamp=`date +"%Y%m%d_%H%M%S"`
+set logdir=copyout_${timestamp}.log
+
+set verboseflag=""
+if ("$1" == "") then
+  echo "Usage: $0 [-v] targetdir"
+  exit 1
+endif
+if ("$2" == "") then
+# default rsync flags to -aW
+  set verboseflag="-aW"
+  set Copydir=$1
+else
+  set verboseflag=$1
+  set Copydir=$2
+endif
+#if ("$verboseflag" != "-v" && "$verboseflag" != "") then
+#  echo "Usage: $0 [-v] targetdir"
+#  exit 1
+#endif
+
+#=============================================================================
+set iosdirs="/vob/ios /vob/ios.sys1 /vob/ios.sys2 /vob/ios.sys3 /vob/ios.sys4 /vob/ios.sys5 /vob/ios.sys6 /vob/ios.sys7 /vob/ios.sys8 /vob/cisco.comp /vob/ios.comp /vob/ss.comp1"
+
+echo "logdir : $logdir"
+echo "Copydir : $Copydir"
+echo "/usr/bin/rsync $verboseflag --exclude lost+found/ $iosdirs $Copydir" 
+
+mkdir -p $Copydir
+
+echo "Doing copyout $verboseflag $Copydir ..." >& $logdir
+date >>& $logdir
+#echo "/usr/local/bin/rsync -aW $verboseflag --exclude lost+found/ $iosdirs $Copydir" >>& $logdir
+echo "RSYNC CMD: /usr/bin/rsync $verboseflag --exclude lost+found/ $iosdirs $Copydir" >>& $logdir
+echo " " >>& $logdir
+#/usr/local/bin/rsync -aW $verboseflag --exclude lost+found/ $iosdirs $Copydir >>& $logdir
+echo "CMD: /usr/bin/rsync $verboseflag --exclude lost+found/ $iosdirs $Copydir"
+/usr/bin/rsync $verboseflag --exclude lost+found/ $iosdirs $Copydir >>& $logdir
+echo "Finished copyout..." >>& $logdir
+date >>& $logdir

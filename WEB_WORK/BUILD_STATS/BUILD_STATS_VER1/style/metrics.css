@@ -1,0 +1,595 @@
+#header
+
+{
+
+  	background-image: url('../image/header_top.png');
+  
+  /*	background-color:#BDB76B; */
+
+    background-repeat: repeat;
+
+    width: 100%;
+
+    margin-right: 0px;
+
+    top: 0;
+
+    left: 0;
+
+    height: 65px;
+
+    padding: 5px 5px 2px 5px;
+
+    position: fixed;
+
+    /*margin-top: -15px;
+
+    margin-left: -15px;*/
+
+
+
+}
+#mytable
+
+{
+
+    margin-top: 10px;
+
+
+}
+
+#topmargin
+
+{
+
+    margin-top: 85px;
+
+
+}
+
+#bottommargin
+
+{
+
+    margin-bottom: 10px;
+
+
+}
+
+#lessmargin
+
+{
+
+    margin-top: 10px;
+
+
+}
+
+
+#cisco_logo
+
+{
+
+    background-image: url('../image/cisco_logo.png');
+
+    background-repeat: no-repeat;
+
+    width: 132px;
+
+    height: 80px;
+    
+    position: fixed;
+
+    float: left;
+
+    left: 5px;
+
+    z-index: 200;
+
+}
+
+#header_text
+
+{
+
+   /* font-family: sans-serif; */
+    font-family: sans-serif;
+
+    font-style: normal;
+
+    /*font-size: x-large; */
+    font-size:30px;
+
+    color:#404040;
+
+    text-align: center;
+
+    top: 20%;
+
+    bottom: 20%;
+
+    position: relative;
+
+    z-index: 200;
+
+}
+
+.export_graph_btn
+
+{
+
+    margin-left: 60%;
+
+
+
+}
+
+.datatablediv{
+
+    margin-left: 2px;
+
+    margin-top: 6%;
+
+    width: 99%;
+
+    position: relative;
+
+    overflow: auto;
+
+
+
+}
+
+
+
+.menudiv{
+
+    margin-top: 6%;
+
+    width: 40%;
+
+    position: relative;
+
+    margin-left:auto;
+
+    margin-right:auto;
+
+}
+
+
+.datatable_large
+
+{
+
+    margin-top: 5px;
+
+    margin-left: 0%;
+
+    margin-right: 1%;
+
+    border: 2px solid #1F497D;
+
+    width: 100%;
+
+    position: relative;
+
+}
+
+.datatable_large th
+
+{
+
+    background-image: url("../images/header-bg.gif");
+
+    text-align: center;
+
+    font-weight: bold;
+
+    color: white;
+
+}
+
+
+.datatable_large td
+
+{
+
+    background-color: #CCCCCC;
+
+    text-align: center;
+
+    font-family: sans-serif;
+
+    font-size: small;
+
+    color: maroon;
+
+
+
+}
+
+.datatablediv_2{
+
+    margin-left: 2px;
+
+    margin-top: 100px;
+
+    width: 95%;
+
+    position: relative;
+
+    float: center;
+
+}
+
+
+
+.datatable_2
+
+{
+
+    margin-top: 5px;
+
+    margin-left: 20%;
+
+    margin-right: 20%;
+
+    border: 2px solid #1F497D;
+
+    width: 60%;
+
+    position: relative;
+
+
+
+}
+
+.datatable_2 th
+
+{
+
+    background-image: url("../images/header-bg.gif");
+
+    text-align: center;
+
+    font-weight: bold;
+
+    color: white;
+
+}
+
+
+
+
+
+.datatable_2 td
+
+{
+
+    background-color: #CCCCCC;
+
+    text-align: center;
+
+    font-family: sans-serif;
+
+    font-size: small;
+
+    color: maroon;
+
+
+
+}
+
+
+.datatablediv_3{
+
+    margin-left: 25%;
+
+    margin-top: 10px;
+
+    position: relative;
+
+    float: right;
+
+    overflow: scroll;
+    width: 75%;
+
+}
+
+
+
+.datatable_3
+
+{
+
+    margin-top: 5px;
+
+    border: 2px solid #1F497D;
+
+    width: 100%;
+
+    position: relative;
+
+
+
+}
+
+.datatable_3 th
+
+{
+
+    background-image: url("../images/header-bg.gif");
+
+    text-align: center;
+
+    font-weight: bold;
+
+    color: white;
+
+    font-size: 12px;
+
+}
+
+
+
+
+
+.datatable_3 td
+
+{
+
+    background-color: #CCCCCC;
+    text-align: center;
+    font-family: sans-serif;
+    font-weight: normal;
+    font-size: 10px;
+    color: maroon;
+}
+
+
+.datatablediv_cisco{
+
+    margin-left: 2px;
+
+    margin-top: 100px;
+
+    width: 95%;
+
+    position: relative;
+
+    float: center;
+
+}
+
+
+
+.datatable_cisco
+
+{
+
+    margin-top: 5px;
+
+    margin-left: 20%;
+
+    margin-right: 20%;
+
+    border: 2px solid #1F497D;
+
+    width: 60%;
+
+    position: relative;
+
+
+
+}
+
+.datatable_cisco th
+
+{
+
+    background:#003366;
+
+    text-align: center;
+
+    font-weight: bold;
+
+    color: white;
+    
+    font-size: 15px;
+
+}
+
+
+
+
+
+.datatable_cisco td
+
+{
+
+    background-color: #CCCCCC;
+
+    text-align: center;
+
+    font-family: sans-serif;
+
+    font-size: 12px;
+
+    color: maroon;
+
+
+}
+
+.datatablediv_cisco2{
+
+    margin-left: 2px;
+
+    margin-top: 50px;
+
+    width: 95%;
+
+    position: relative;
+
+    float: center;
+
+}
+
+
+.datatable_cisco2
+
+{
+
+    table-layout: fixed;
+    
+    margin-top: 5px;
+
+    margin-left: 10%;
+
+    margin-right: 20%;
+
+    border: 2px solid #1F497D;
+
+    position: relative;
+
+
+
+}
+
+.datatable_cisco2 th
+
+{
+
+    background:#003366;
+
+    text-align: center;
+
+    font-weight: bold;
+
+    color: white;
+    
+    font-size: 15px;
+
+}
+
+
+
+
+
+.datatable_cisco2 td
+
+{
+
+    background-color: #CCCCCC;
+
+    text-align: center;
+
+    font-family: sans-serif;
+
+    font-size: 12px;
+
+    color: maroon;
+
+
+}
+
+
+    /* font-size: small; */
+
+
+
+.datatable_smalltext
+
+{
+
+    margin-top: 5px;
+
+    border: 2px solid #1F497D;
+
+    width: 100%;
+
+    position: relative;
+
+
+
+}
+
+.datatable_smalltext th
+
+{
+
+    background-image: url("../images/header-bg.gif");
+
+    text-align: center;
+
+    font-weight: bold;
+
+    color: white;
+
+    font-size: 12px;
+
+}
+
+
+
+
+
+.datatable_smalltext td
+
+{
+
+    background-color: #CCCCCC;
+
+    text-align: center;
+
+    font-family: sans-serif;
+
+    font-size: 9px;
+
+    color: maroon;
+
+
+
+}
+
+
+
+.datatable_smalltext .textleftalign{
+
+
+
+    background-color: #CCCCCC;
+
+    text-align: left;
+
+    font-family: sans-serif;
+
+    font-size: 10px;
+
+    color: maroon;
+
+    width: auto;
+
+}
+
+
+
+/**/
+
+.
+#homelink
+
+{
+
+    margin-top: 80px;
+
+    margin-bottom: 10px;
+
+    width: 98%;
+
+    float: right;
+
+    text-align: right;
+
+    margin-bottom: 5px;
+
+}

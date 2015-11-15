@@ -1,0 +1,10 @@
+Compressing c5400-js-mz.symbols
+/san2/CPY-v155_1_t_throttle.NIGHTLY_V155_1_T_THROTTLE-20150814_0323-17/vob/ios/sys/scripts/cp_to_tftp c5400-js-m.czbin /san2/CPY-v155_1_t_throttle.NIGHTLY_V155_1_T_THROTTLE-20150814_0323-17/vob/ios/sys/obj-7k-as5400/c5400-js-mz
+/auto/iretools/pbas/current/cp_file c5400-js-m.czbin /san2/CPY-v155_1_t_throttle.NIGHTLY_V155_1_T_THROTTLE-20150814_0323-17/vob/ios/sys/obj-7k-as5400/c5400-js-mz
+make-3.81[3]: Target `targets-PLATFORM-obj-7k-as5400' not remade because of errors.
+make-3.81[3]: Leaving directory `/san2/CPY-v155_1_t_throttle.NIGHTLY_V155_1_T_THROTTLE-20150814_0323-17/vob/ios.sys4/sys/obj-7k-as5400'
+make-3.81[2]: [PLATFORM-obj-7k-as5400] Error 2 (ignored)
+make-3.81[2]: Leaving directory `/san2/CPY-v155_1_t_throttle.NIGHTLY_V155_1_T_THROTTLE-20150814_0323-17/vob/ios/sys'
+make-3.81[1]: Nothing to be done for `c5400-js-mz'.
+make-3.81[1]: Leaving directory `/san2/CPY-v155_1_t_throttle.NIGHTLY_V155_1_T_THROTTLE-20150814_0323-17/vob/ios/sys'
+make-3.81: Nothing to be done for `c5400-js-mz'.

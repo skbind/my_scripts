@@ -1,0 +1,78 @@
+#header {
+    background-color:#002447;
+    color:white;
+    text-align:center;
+    padding:5px;
+}
+#nav {
+    line-height:30px;
+    background-color:#eeeeee;
+    height:300px;
+    width:300px;
+    float:left;
+    padding:5px;	      
+}
+#section {
+    width:600px;
+    float:left;
+    padding:10px;	 	 
+}
+#footer {
+    background-color:black;
+    color:white;
+    clear:both;
+    text-align:center;
+   padding:5px;	 	 
+}
+
+#datatable
+
+{
+
+    margin-top: 5px;
+
+    margin-left: 25%;
+
+    margin-right: 15%;
+
+    border: 2px solid #1F497D;
+
+    width: 50%;
+
+    position: relative;
+
+    left: 0.5%;
+
+    right: 0.5%;
+
+}
+
+#datatable th
+
+{
+
+    background-image: url("../images/header-bg.gif");
+
+    text-align: center;
+
+    font-weight: bold;
+
+    color: white;
+
+}
+
+
+
+
+
+#datatable td
+
+{
+
+    background-color: #CCCCCC;
+    text-align: center;
+    font-weight: normal;
+    color: maroon;
+    font-size: 10px;
+    font-family: sans-serif;
+}
